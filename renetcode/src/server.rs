@@ -403,7 +403,7 @@ impl NetcodeServer {
 
     fn process_packet_internal<'a, 's>(&'s mut self, addr: SocketAddr, buffer: &'a mut [u8]) -> Result<ServerResult<'a, 's>, NetcodeError> {
         // a nat punch packet, ignore it
-        if buffer.len() == 1 && buffer[0] == 243u8 {
+        if matches!(buffer, [7, 7, 7]) {
             return Ok(ServerResult::None);
         }
         // The relay addr exists as a special case, we handle it first.

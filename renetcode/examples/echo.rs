@@ -119,8 +119,8 @@ fn handle_server_result(
             socket.send_to(&message, relay_addr).unwrap();
         }
         ServerResult::NatPunchThrough { socket_addr, target_nonce, expected_nonce} => {
-            // Send a dummy packet to the target, a byte value of 243 is used as a pre-known value for nicer parsing
-            socket.send_to(&[243], socket_addr).unwrap();
+            // Send a dummy packet to the target, a byte value of 7, 7, 7 is used as a pre-known value for nicer parsing
+            socket.send_to(&[7, 7, 7], socket_addr).unwrap();
         }
         ServerResult::None => {}
     }

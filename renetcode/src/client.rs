@@ -1,9 +1,6 @@
 use std::{error::Error, fmt, net::SocketAddr, time::Duration};
 
-use crate::{
-    packet::Packet, replay_protection::ReplayProtection, token::ConnectToken, NetcodeError, NETCODE_CHALLENGE_TOKEN_BYTES,
-    NETCODE_KEY_BYTES, NETCODE_MAX_PACKET_BYTES, NETCODE_MAX_PAYLOAD_BYTES, NETCODE_SEND_RATE, NETCODE_USER_DATA_BYTES,
-};
+use crate::{packet::Packet, replay_protection::ReplayProtection, token::ConnectToken, NetcodeError, NETCODE_CHALLENGE_TOKEN_BYTES, NETCODE_KEY_BYTES, NETCODE_MAX_PACKET_BYTES, NETCODE_MAX_PAYLOAD_BYTES, NETCODE_SEND_RATE, NETCODE_USER_DATA_BYTES, ServerResult};
 
 /// The reason why a client is in error state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,7 +189,7 @@ impl NetcodeClient {
     /// invalid packet.
     pub fn process_packet<'a>(&mut self, buffer: &'a mut [u8]) -> Option<&'a [u8]> {
         // a nat punch packet, ignore it
-        if buffer.len() == 1 && buffer[0] == 243u8 {
+        if matches!(buffer, [7, 7, 7]) {
             return None;
         }
         let packet = match Packet::decode(
