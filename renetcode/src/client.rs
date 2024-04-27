@@ -191,6 +191,10 @@ impl NetcodeClient {
     /// server. If nothing is returned, it was a packet used for the internal protocol or an
     /// invalid packet.
     pub fn process_packet<'a>(&mut self, buffer: &'a mut [u8]) -> Option<&'a [u8]> {
+        // a nat punch packet, ignore it
+        if buffer.len() == 1 && buffer[0] == 243u8 {
+            return None;
+        }
         let packet = match Packet::decode(
             buffer,
             self.connect_token.protocol_id,
