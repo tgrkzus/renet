@@ -114,6 +114,14 @@ fn handle_server_result(
                 socket.send_to(payload, addr).unwrap();
             }
         }
+        ServerResult::SendToRelay(relay_addr, message) => {
+            let message = serde_json::to_vec(&message).unwrap();
+            socket.send_to(&message, relay_addr).unwrap();
+        }
+        ServerResult::NatPunchThrough { socket_addr, target_nonce, expected_nonce} => {
+            // Send a dummy packet to the target, a byte value of 243 is used as a pre-known value for nicer parsing
+            socket.send_to(&[243], socket_addr).unwrap();
+        }
         ServerResult::None => {}
     }
 }
@@ -125,6 +133,8 @@ fn server(addr: SocketAddr, private_key: [u8; NETCODE_KEY_BYTES]) {
         max_clients: 16,
         protocol_id: PROTOCOL_ID,
         public_addresses: vec![addr],
+        // TODO Dummy value
+        relay_addr: "9.9.9.9:9999".parse().unwrap(),
         authentication: ServerAuthentication::Secure { private_key },
     };
     let mut server: NetcodeServer = NetcodeServer::new(config);

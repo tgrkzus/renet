@@ -35,6 +35,7 @@ impl ChatServer {
             max_clients: 64,
             protocol_id: PROTOCOL_ID,
             public_addresses: vec![socket.local_addr().unwrap()],
+            relay_addr: "9.9.9.9:9999".parse().unwrap(),
             authentication: ServerAuthentication::Unsecure,
         };
 

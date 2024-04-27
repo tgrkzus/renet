@@ -13,3 +13,6 @@ edition = "2021"
 [dependencies]
 chacha20poly1305 = "0.10.0"
 log = "0.4.17"
+relay_core = { git = "https://github.com/tgrkzus/supply-relay.git" }
+serde = { version = "1.0" }
+serde_json = { version = "1.0" }

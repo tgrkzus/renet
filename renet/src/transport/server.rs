@@ -158,5 +158,13 @@ fn handle_server_result(server_result: ServerResult, socket: &UdpSocket, reliabl
                 send_packet(payload, addr);
             }
         }
+        ServerResult::SendToRelay(relay_addr, message) => {
+            let message = serde_json::to_vec(&message).unwrap();
+            socket.send_to(&message, relay_addr).unwrap();
+        }
+        ServerResult::NatPunchThrough { socket_addr, target_nonce, expected_nonce} => {
+            // Send a dummy packet to the target, a byte value of 243 is used as a pre-known value for nicer parsing
+            socket.send_to(&[243], socket_addr).unwrap();
+        }
     }
 }
