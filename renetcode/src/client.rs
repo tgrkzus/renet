@@ -1,4 +1,5 @@
 use std::{error::Error, fmt, net::SocketAddr, time::Duration};
+use log::error;
 
 use crate::{packet::Packet, replay_protection::ReplayProtection, token::ConnectToken, NetcodeError, NETCODE_CHALLENGE_TOKEN_BYTES, NETCODE_KEY_BYTES, NETCODE_MAX_PACKET_BYTES, NETCODE_MAX_PAYLOAD_BYTES, NETCODE_SEND_RATE, NETCODE_USER_DATA_BYTES, ServerResult};
 
@@ -190,6 +191,7 @@ impl NetcodeClient {
     pub fn process_packet<'a>(&mut self, buffer: &'a mut [u8]) -> Option<&'a [u8]> {
         // a nat punch packet, ignore it
         if matches!(buffer, [7, 7, 7]) {
+            error!("Ignoring nat punch packet");
             return None;
         }
         let packet = match Packet::decode(
