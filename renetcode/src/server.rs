@@ -57,7 +57,7 @@ pub struct NetcodeServer {
     challenge_sequence: u64,
     challenge_key: [u8; NETCODE_KEY_BYTES],
     public_addresses: Vec<SocketAddr>,
-    relay_addr: SocketAddr,
+    relay_addresses: Vec<SocketAddr>,
     current_time: Duration,
     global_sequence: u64,
     secure: bool,
@@ -119,10 +119,10 @@ pub struct ServerConfig {
     pub protocol_id: u64,
     /// Publicly available addresses to which clients will attempt to connect.
     pub public_addresses: Vec<SocketAddr>,
+    /// Relay Address for handling relay packets
+    pub relay_addresses: Vec<SocketAddr>,
     /// Authentication configuration for the server
     pub authentication: ServerAuthentication,
-    /// Relay Address for handling relay packets
-    pub relay_addr: SocketAddr,
 }
 
 impl NetcodeServer {
@@ -156,7 +156,7 @@ impl NetcodeServer {
             global_sequence: 0,
             challenge_key,
             public_addresses: config.public_addresses,
-            relay_addr: config.relay_addr,
+            relay_addresses: config.relay_addresses,
             current_time: config.current_time,
             secure,
             out: [0u8; NETCODE_MAX_PACKET_BYTES],
@@ -170,7 +170,7 @@ impl NetcodeServer {
             max_clients: 32,
             protocol_id: 0,
             public_addresses: vec!["127.0.0.1:0".parse().unwrap()],
-            relay_addr: "9.9.9.9:9999".parse().unwrap(),
+            relay_addresses: vec!["9.9.9.9:9999".parse().unwrap()],
             authentication: ServerAuthentication::Unsecure,
         };
         Self::new(config)
@@ -402,17 +402,17 @@ impl NetcodeServer {
     }
 
     fn process_packet_internal<'a, 's>(&'s mut self, addr: SocketAddr, buffer: &'a mut [u8]) -> Result<ServerResult<'a, 's>, NetcodeError> {
-        if buffer.len() < 2 + NETCODE_MAC_BYTES {
-            return Err(NetcodeError::PacketTooSmall);
+        // a nat punch packet, ignore it
+        if buffer.len() == 1 && buffer[0] == 243u8 {
+            return Ok(ServerResult::None);
         }
-
         // The relay addr exists as a special case, we handle it first.
         // It's expected that the server establishes connection to the relay addr from the get-go
         // TODO handle 'reconnecting' to the relay if we disconnect at some point
-        if addr == self.relay_addr {
+        if self.relay_addresses.contains(&addr) {
             let relay_message: RelayMessage = serde_json::from_slice(buffer).unwrap();
             return match relay_message {
-                RelayMessage::Ping => Ok(ServerResult::SendToRelay(self.relay_addr.clone(), ConnectionMessage::Pong)),
+                RelayMessage::Ping => Ok(ServerResult::SendToRelay(self.relay_addresses.first().unwrap().clone(), ConnectionMessage::Pong)),
                 RelayMessage::NatPunchThroughInstruction { socket_addr, target_nonce, expected_nonce } => {
                     Ok(ServerResult::NatPunchThrough{
                         socket_addr,
@@ -429,6 +429,11 @@ impl NetcodeServer {
                     Ok(ServerResult::None)
                 },
             };
+        }
+
+        // Otherwise assume a Renet Protocol message:
+        if buffer.len() < 2 + NETCODE_MAC_BYTES {
+            return Err(NetcodeError::PacketTooSmall);
         }
 
         // Handle connected client
@@ -771,7 +776,7 @@ mod tests {
             max_clients: 16,
             protocol_id: TEST_PROTOCOL_ID,
             public_addresses: vec!["127.0.0.1:5000".parse().unwrap()],
-            relay_addr: "9.9.9.9:9999".parse().unwrap(),
+            relay_addresses: vec!["9.9.9.9:9999".parse().unwrap()],
             authentication: ServerAuthentication::Secure { private_key: *TEST_KEY },
         };
         NetcodeServer::new(config)

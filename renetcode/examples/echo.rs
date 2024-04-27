@@ -134,7 +134,7 @@ fn server(addr: SocketAddr, private_key: [u8; NETCODE_KEY_BYTES]) {
         protocol_id: PROTOCOL_ID,
         public_addresses: vec![addr],
         // TODO Dummy value
-        relay_addr: "9.9.9.9:9999".parse().unwrap(),
+        relay_addresses: vec!["9.9.9.9:9999".parse().unwrap()],
         authentication: ServerAuthentication::Secure { private_key },
     };
     let mut server: NetcodeServer = NetcodeServer::new(config);
