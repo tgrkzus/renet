@@ -162,7 +162,7 @@ fn handle_server_result(server_result: ServerResult, socket: &UdpSocket, reliabl
             let message = serde_json::to_vec(&message).unwrap();
             socket.send_to(&message, relay_addr).unwrap();
         }
-        ServerResult::NatPunchThrough { socket_addr, target_nonce, expected_nonce} => {
+        ServerResult::ConfirmPunch { socket_addr} => {
             // Send a dummy packet to the target, a byte value of 7, 7, 7is used as a pre-known value for nicer parsing
             socket.send_to(&[7, 7, 7], socket_addr).unwrap();
         }

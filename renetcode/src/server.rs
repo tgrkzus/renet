@@ -1,4 +1,5 @@
 use std::{collections::HashMap, net::SocketAddr, time::Duration};
+use std::collections::HashSet;
 use log::error;
 use relay_core::{ConnectionMessage, RelayMessage};
 
@@ -62,6 +63,7 @@ pub struct NetcodeServer {
     global_sequence: u64,
     secure: bool,
     out: [u8; NETCODE_MAX_PACKET_BYTES],
+    pub punching_through: HashSet<SocketAddr>,
 }
 
 /// Result from processing an packet in the server
@@ -87,12 +89,8 @@ pub enum ServerResult<'a, 's> {
         payload: Option<&'s mut [u8]>,
     },
     SendToRelay(SocketAddr, ConnectionMessage),
-    NatPunchThrough {
+    ConfirmPunch {
         socket_addr: SocketAddr,
-        /// The nonce to _send_ to the target
-        target_nonce: String,
-        /// The nonce to _expect_ from the target
-        expected_nonce: String,
     },
 }
 
@@ -160,6 +158,7 @@ impl NetcodeServer {
             current_time: config.current_time,
             secure,
             out: [0u8; NETCODE_MAX_PACKET_BYTES],
+            punching_through: HashSet::new(),
         }
     }
 
@@ -404,25 +403,26 @@ impl NetcodeServer {
     fn process_packet_internal<'a, 's>(&'s mut self, addr: SocketAddr, buffer: &'a mut [u8]) -> Result<ServerResult<'a, 's>, NetcodeError> {
         // a nat punch packet, ignore it
         if matches!(buffer, [7, 7, 7]) {
-            error!("Ignoring nat punch packet");
-            return Ok(ServerResult::None);
+            error!("Nat punch packet");
+            return Ok(ServerResult::ConfirmPunch { socket_addr: addr });
         }
         // The relay addr exists as a special case, we handle it first.
         // It's expected that the server establishes connection to the relay addr from the get-go
         // TODO handle 'reconnecting' to the relay if we disconnect at some point
-        if self.relay_addresses.contains(&addr) {
+        if self.relay_addresses.contains(&addr) || self.punching_through.contains(&addr) {
             let relay_message: RelayMessage = serde_json::from_slice(buffer).unwrap();
             return match relay_message {
                 RelayMessage::Ping => Ok(ServerResult::SendToRelay(self.relay_addresses.first().unwrap().clone(), ConnectionMessage::Pong)),
                 RelayMessage::NatPunchThroughInstruction { socket_addr, target_nonce, expected_nonce } => {
-                    Ok(ServerResult::NatPunchThrough{
-                        socket_addr,
-                        target_nonce,
-                        expected_nonce,
-                    })
+                    self.punching_through.insert(socket_addr);
+                    Ok(ServerResult::None)
                 }
                 RelayMessage::Error(err) => {
                     error!("Got error from relay: {:?}", err);
+                    Ok(ServerResult::None)
+                },
+                RelayMessage::PunchThroughConfirm => {
+                    self.punching_through.remove(&addr);
                     Ok(ServerResult::None)
                 },
                 _ => {

@@ -12,6 +12,7 @@ use std::{
     sync::mpsc::{self, Receiver, TryRecvError},
     time::{SystemTime, UNIX_EPOCH},
 };
+use relay_core::RelayMessage;
 
 // Unique id used for a version of your game
 const PROTOCOL_ID: u64 = 123456789;
@@ -118,9 +119,9 @@ fn handle_server_result(
             let message = serde_json::to_vec(&message).unwrap();
             socket.send_to(&message, relay_addr).unwrap();
         }
-        ServerResult::NatPunchThrough { socket_addr, target_nonce, expected_nonce} => {
-            // Send a dummy packet to the target, a byte value of 7, 7, 7 is used as a pre-known value for nicer parsing
-            socket.send_to(&[7, 7, 7], socket_addr).unwrap();
+        ServerResult::ConfirmPunch { socket_addr } => {
+            let message = serde_json::to_vec(&RelayMessage::PunchThroughConfirm).unwrap();
+            socket.send_to(&message, socket_addr).unwrap();
         }
         ServerResult::None => {}
     }
@@ -148,6 +149,10 @@ fn server(addr: SocketAddr, private_key: [u8; NETCODE_KEY_BYTES]) {
         server.update(Instant::now() - last_updated);
         received_messages.clear();
 
+        for punching in &server.punching_through {
+            // Repeatedly send a dummy packet to the target, a byte value of 7, 7, 7 is used as a pre-known value for nicer parsing
+            udp_socket.send_to(&[7, 7, 7], punching).unwrap();
+        }
         loop {
             match udp_socket.recv_from(&mut buffer) {
                 Ok((len, addr)) => {
